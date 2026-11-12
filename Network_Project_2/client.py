@@ -172,8 +172,8 @@ def run_simple_command(command_text, name, operation_name):
 # Command input
 def command_loop():
     global server_socket
-    print("Commands: connect <ip> <port> | upload <file> [name] | download <name> | delete <name>")
-    print("          dir [folder] | subfolder create|delete <path> | quit")
+    print("Commands: connect <ip> <port>, upload <file> [name], download <name>, delete <name>,")
+    print("dir [folder], subfolder create|delete <path> , quit")
 
     # this loop keeps asking the user for a command until they type quit
     while True:

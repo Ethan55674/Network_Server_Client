@@ -31,7 +31,7 @@ USER_PASSWORD_HASHES = {
     "Bruno": hash_password("pass456"),
 }
 
-stats = StatsCollector("server_stats.csv")
+stats = StatsCollector("server_stats.csv") #instead of a doc we are printing the stats to a excel file
 files_in_use = set()  # names of files that are being sent or received right now
 file_counter_lock = threading.Lock()
 file_counter = 0  # as the name implies how many files are in the server
@@ -44,7 +44,6 @@ def send_message(connection, text):
 
 
 def receive_exact_bytes(connection, how_many):
-    # recv can give us less than we asked for
     # so this loop keeps calling it until we have all the bytes we need
     data = b""
     while len(data) < how_many:
@@ -64,7 +63,7 @@ def receive_message(connection):
 def send_file_data(connection, file_path):
     send_message(connection, str(os.path.getsize(file_path)))
     with open(file_path, "rb") as f:
-        # read one piece of the file at a time and send it until there is nothing left
+        # read only one piece of the file at a time and send it until there is nothing left
         while True:
             piece = f.read(CHUNK_SIZE)
             if not piece:
@@ -85,7 +84,7 @@ def receive_file_data(connection, save_path):
 
 
 # File names
-def make_logical_name(original_path):
+def make_name(original_path):
     # the stored name starts with a letter for the type then S for server then a number
     # T is text and A is audio and V is video and O is anything else
     # so a text file called notes.txt gets saved as TS001_notes.txt
@@ -145,7 +144,7 @@ def handle_upload_command(connection, user, client_path, start_time):
         send_message(connection, "OK")
         response_seconds = time.time() - start_time
         save_path = os.path.join(STORAGE_FOLDER, os.path.dirname(client_path),
-                                 make_logical_name(client_path))
+                                 make_name(client_path))
 
     files_in_use.add(client_path)
     try:
@@ -181,11 +180,11 @@ def handle_download_command(connection, user, client_path, start_time):
 
 def handle_delete_command(connection, user, client_path, start_time):
     stored_file = find_stored_file(client_path)
-    if not stored_file:
+    if not stored_file: # checks if file exists
         send_message(connection, "ERROR File does not exist")
-    elif client_path in files_in_use:
+    elif client_path in files_in_use: # file is being downloaded or uploaded so it can't be deleted
         send_message(connection, "ERROR File is being used right now so it cannot be deleted")
-    else:
+    else: # deletes the file
         os.remove(stored_file)
         send_message(connection, "OK Deleted " + client_path)
         stats.record_operation(user, "delete", client_path, 0, 0, time.time() - start_time)
@@ -203,7 +202,7 @@ def handle_dir_command(connection, user, folder_path, start_time):
         if os.path.isdir(os.path.join(full_folder, name)):
             lines.append("[FOLDER] " + name)
         else:
-            lines.append("[FILE] " + name)    # shows the stored name like TS001_a.txt
+            lines.append("[FILE] " + name)# shows the stored name like TS001_a.txt
     if len(lines) == 0:
         lines.append("(empty)")
     send_message(connection, "OK " + "\n".join(lines))
@@ -213,22 +212,22 @@ def handle_dir_command(connection, user, folder_path, start_time):
 def handle_subfolder_command(connection, user, action, folder_path, start_time):
     full_folder = os.path.join(STORAGE_FOLDER, folder_path)
 
-    if action == "create":
-        if os.path.exists(full_folder):
+    if action == "create": 
+        if os.path.exists(full_folder):# doesn't allow duplicates
             send_message(connection, "ERROR Folder already exists")
             return
-        os.makedirs(full_folder)
-        send_message(connection, "OK Created folder " + folder_path)
+        os.makedirs(full_folder) # makes folder and shows path
+        send_message(connection, "OK created folder " + folder_path)
     elif action == "delete":
-        if not os.path.isdir(full_folder):
+        if not os.path.isdir(full_folder): # checks if it exists
             send_message(connection, "ERROR Folder does not exist")
             return
-        if len(os.listdir(full_folder)) > 0:
+        if len(os.listdir(full_folder)) > 0: #must delete everything in folder in order to delete
             send_message(connection, "ERROR Folder is not empty")
             return
-        os.rmdir(full_folder)
+        os.rmdir(full_folder) #deletes folder
         send_message(connection, "OK Deleted folder " + folder_path)
-    else:
+    else: # only allows create/delete
         send_message(connection, "ERROR Use subfolder create or subfolder delete")
         return
     stats.record_operation(user, "subfolder_" + action, folder_path, 0, 0, time.time() - start_time)
@@ -259,23 +258,23 @@ def handle_one_client(connection, address):
         # this loop keeps reading commands from the client
         # it only stops when the client sends quit
         while True:
-            parts = receive_message(connection).split("|")    # for example ["upload", "a.txt"]
+            segment = receive_message(connection).split("|")    # for example ["upload", "a.txt"]
             start_time = time.time()
-            command = parts[0]
+            command = segment[0]
 
             if command == "upload":
-                handle_upload_command(connection, user, parts[1], start_time)
+                handle_upload_command(connection, user, segment[1], start_time)
             elif command == "download":
-                handle_download_command(connection, user, parts[1], start_time)
+                handle_download_command(connection, user, segment[1], start_time)
             elif command == "delete":
-                handle_delete_command(connection, user, parts[1], start_time)
+                handle_delete_command(connection, user, segment[1], start_time)
             elif command == "dir":
-                handle_dir_command(connection, user, parts[1], start_time)
+                handle_dir_command(connection, user, segment[1], start_time)
             elif command == "subfolder":
-                handle_subfolder_command(connection, user, parts[1], parts[2], start_time)
+                handle_subfolder_command(connection, user, segment[1], segment[2], start_time)
             elif command == "quit":
                 break
-            else:
+            else: # only allows commands above
                 send_message(connection, "ERROR Unknown command")
     except (ConnectionError, OSError):
         # this happens when the client closes the program or the network drops

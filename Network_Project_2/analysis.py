@@ -1,6 +1,7 @@
 # analysis.py
 # This file keeps track of how fast things are on the network.
 # The server makes one of these when it starts and the client makes its own.
+# DO NOT RUN THIS SERVER  IT IS AUTOMATICALLY RAN AT STARTUP
 import csv
 import time
 
@@ -23,13 +24,13 @@ class StatsCollector:
             speed = 0
         record = {
             "time": time.strftime("%H:%M:%S"),
-            "user": user,
+            "user_name": user,
             "operation": operation,
             "file": file_name,
             "MB": round(megabytes, 2),
-            "transfer_seconds": round(transfer_seconds, 3),
-            "MB_per_sec": round(speed, 2),
-            "response_seconds": round(response_seconds, 5),
+            "transfer_seconds": round(transfer_seconds, 6 ),
+            "MB_per_second": round(speed, 2),
+            "response_seconds": round(response_seconds, 6),
         }
         self.records.append(record)
 
